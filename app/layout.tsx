@@ -63,6 +63,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://apex-global-academy.vercel.app",
   },
+  verification: {
+    google: "googleaf9947d6b497a90e",
+  },
 };
 
 export default function RootLayout({
