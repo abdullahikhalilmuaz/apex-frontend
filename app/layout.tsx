@@ -25,11 +25,11 @@ export const metadata: Metadata = {
   authors: [{ name: "Apex Global Academy" }],
   creator: "Apex Global Academy",
   publisher: "Apex Global Academy",
-  metadataBase: new URL("https://apexglobalacademy.com"),
+  metadataBase: new URL("https://apex-global-academy.vercel.app"),
   openGraph: {
     type: "website",
     locale: "en_NG",
-    url: "https://apexglobalacademy.com",
+    url: "https://apex-global-academy.vercel.app",
     siteName: "Apex Global Academy",
     title: "Apex Global Academy | Best Primary School in Katsina, Nigeria",
     description:
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: "https://apexglobalacademy.com",
+    canonical: "https://apex-global-academy.vercel.app",
   },
 };
 
@@ -76,7 +76,7 @@ export default function RootLayout({
     name: "Apex Global Academy",
     description:
       "A leading primary school in Katsina, Nigeria, committed to quality education.",
-    url: "https://apexglobalacademy.com",
+    url: "https://apex-global-academy.vercel.app",
     address: {
       "@type": "PostalAddress",
       addressLocality: "Katsina",

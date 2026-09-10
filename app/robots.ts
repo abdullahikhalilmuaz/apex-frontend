@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/headmaster/", "/teacher/", "/parent/"],
     },
-    sitemap: "https://apexglobalacademy.com/sitemap.xml",
+    sitemap: "https://apex-global-academy.vercel.app/sitemap.xml",
   };
 }
