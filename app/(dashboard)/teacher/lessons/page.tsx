@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { GlassCard } from "@/components/ui/GlassCard";
 import api from "@/lib/api/client";
+import { useAuth } from "@/hooks/useAuth";
 import styled from "@emotion/styled";
-import { Plus, Edit2, Trash2, Save, X, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, FileText } from "lucide-react";
 import {
   PDFDownloadLink,
   Document,
@@ -36,7 +37,7 @@ const pdfStyles = StyleSheet.create({
 });
 
 // PDF Component
-const LessonNotePDF = ({ note }) => (
+const LessonNotePDF = ({ note }: any) => (
   <Document>
     <Page size="A4" style={pdfStyles.page}>
       <Text style={pdfStyles.title}>{note.topic}</Text>
@@ -61,7 +62,7 @@ const LessonNotePDF = ({ note }) => (
 
       <View style={pdfStyles.section}>
         <Text style={pdfStyles.label}>Objectives:</Text>
-        {note.objectives?.map((obj, i) => (
+        {note.objectives?.map((obj: string, i: number) => (
           <Text key={i} style={pdfStyles.content}>
             • {obj}
           </Text>
@@ -70,7 +71,7 @@ const LessonNotePDF = ({ note }) => (
 
       <View style={pdfStyles.section}>
         <Text style={pdfStyles.label}>Teaching Materials:</Text>
-        {note.teachingMaterials?.map((mat, i) => (
+        {note.teachingMaterials?.map((mat: string, i: number) => (
           <Text key={i} style={pdfStyles.content}>
             • {mat}
           </Text>
@@ -258,13 +259,25 @@ const PDFButton = styled(Button)`
   background: linear-gradient(135deg, #f59e0b, #d97706);
 `;
 
+const ClassBanner = styled.div`
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: #a78bfa;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+`;
+
 export default function TeacherLessons() {
-  const [notes, setNotes] = useState([]);
+  const { user } = useAuth();
+  const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [teacherClass, setTeacherClass] = useState("");
   const [formData, setFormData] = useState({
-    class: "Primary 1",
     subject: "Mathematics",
     topic: "",
     objectives: "",
@@ -275,14 +288,6 @@ export default function TeacherLessons() {
     assignment: "",
   });
 
-  const classes = [
-    "Primary 1",
-    "Primary 2",
-    "Primary 3",
-    "Primary 4",
-    "Primary 5",
-    "Primary 6",
-  ];
   const subjects = [
     "English",
     "Mathematics",
@@ -293,8 +298,23 @@ export default function TeacherLessons() {
   ];
 
   useEffect(() => {
-    fetchNotes();
+    fetchTeacherAndNotes();
   }, []);
+
+  const fetchTeacherAndNotes = async () => {
+    try {
+      const [teacherRes, notesRes] = await Promise.all([
+        api.get("/teacher/profile"),
+        api.get("/lesson-notes"),
+      ]);
+      setTeacherClass(teacherRes.data.classAssigned || "");
+      setNotes(notesRes.data);
+    } catch (error) {
+      console.error("Error fetching:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchNotes = async () => {
     try {
@@ -302,12 +322,24 @@ export default function TeacherLessons() {
       setNotes(res.data);
     } catch (error) {
       console.error("Error fetching notes:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const resetForm = () => {
+    setFormData({
+      subject: "Mathematics",
+      topic: "",
+      objectives: "",
+      teachingMaterials: "",
+      introduction: "",
+      presentation: "",
+      evaluation: "",
+      assignment: "",
+    });
+    setEditing(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const data = {
@@ -325,25 +357,14 @@ export default function TeacherLessons() {
       }
       fetchNotes();
       setShowModal(false);
-      setEditing(null);
-      setFormData({
-        class: "Primary 1",
-        subject: "Mathematics",
-        topic: "",
-        objectives: "",
-        teachingMaterials: "",
-        introduction: "",
-        presentation: "",
-        evaluation: "",
-        assignment: "",
-      });
+      resetForm();
     } catch (error) {
       console.error("Error saving note:", error);
       alert("Error saving lesson note");
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Delete this lesson note?")) {
       await api.delete(`/lesson-notes/${id}`);
       fetchNotes();
@@ -362,9 +383,16 @@ export default function TeacherLessons() {
       <Header>
         <div>
           <Title>📝 Lesson Notes</Title>
-          <Subtitle>Create and manage your lesson notes</Subtitle>
+          <Subtitle>
+            {notes.length} notes {teacherClass && `• ${teacherClass}`}
+          </Subtitle>
         </div>
-        <Button onClick={() => setShowModal(true)}>
+        <Button
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
+        >
           <Plus size={20} /> New Note
         </Button>
       </Header>
@@ -394,10 +422,15 @@ export default function TeacherLessons() {
                   onClick={() => {
                     setEditing(note._id);
                     setFormData({
-                      ...note,
+                      subject: note.subject,
+                      topic: note.topic,
                       objectives: note.objectives?.join("\n") || "",
                       teachingMaterials:
                         note.teachingMaterials?.join("\n") || "",
+                      introduction: note.introduction || "",
+                      presentation: note.presentation || "",
+                      evaluation: note.evaluation || "",
+                      assignment: note.assignment || "",
                     });
                     setShowModal(true);
                   }}
@@ -433,18 +466,8 @@ export default function TeacherLessons() {
               {editing ? "Edit Lesson Note" : "New Lesson Note"}
             </h2>
             <form onSubmit={handleSubmit}>
-              <Select
-                value={formData.class}
-                onChange={(e) =>
-                  setFormData({ ...formData, class: e.target.value })
-                }
-              >
-                {classes.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
+              <ClassBanner>Class: {teacherClass || "Not assigned"}</ClassBanner>
+
               <Select
                 value={formData.subject}
                 onChange={(e) =>
@@ -457,6 +480,7 @@ export default function TeacherLessons() {
                   </option>
                 ))}
               </Select>
+
               <Input
                 placeholder="Topic"
                 value={formData.topic}

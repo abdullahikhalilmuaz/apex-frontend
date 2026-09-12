@@ -175,11 +175,11 @@ export default function Footer() {
           </ContactRow>
           <ContactRow>
             <Phone size={18} style={{ flexShrink: 0 }} />
-            <span>+234 800 000 0000</span>
+            <span>+234 806 536 8767</span>
           </ContactRow>
           <ContactRow>
             <Mail size={18} style={{ flexShrink: 0 }} />
-            <span>info@apexglobalacademy.com</span>
+            <span>ibrahimkmg4@gmail.com</span>
           </ContactRow>
         </Col>
       </Grid>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import styled from "@emotion/styled";
 import {
@@ -14,7 +15,6 @@ import {
   X,
   BookOpen,
   MessageCircle,
-  UserCog,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -78,11 +78,23 @@ const HamburgerButton = styled.button`
 `;
 
 const Logo = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   color: white;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   margin-bottom: 40px;
-  padding-left: 12px;
+  text-align: center;
+`;
+
+const LogoImage = styled(Image)`
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 12px;
+  flex-shrink: 0;
 `;
 
 const NavSection = styled.div`
@@ -145,7 +157,7 @@ export default function Sidebar() {
     { icon: Calendar, label: "Attendance", href: "/headmaster/attendance" },
     { icon: Bell, label: "Announcements", href: "/headmaster/announcements" },
     { icon: BookOpen, label: "Scheme of Work", href: "/headmaster/scheme" },
-    { icon: BookOpen, label: "Results", href: "/headmaster/results" }, // ← ADD THIS
+    { icon: BookOpen, label: "Results", href: "/headmaster/results" },
     { icon: MessageCircle, label: "Messages", href: "/headmaster/messages" },
   ];
 
@@ -156,7 +168,7 @@ export default function Sidebar() {
     { icon: BookOpen, label: "Results", href: "/teacher/results" },
     { icon: Calendar, label: "Scheme of Work", href: "/teacher/scheme" },
     { icon: BookOpen, label: "Lesson Notes", href: "/teacher/lessons" },
-    { icon: Bell, label: "Announcements", href: "/teacher/announcements" }, // ← ADD THIS
+    { icon: Bell, label: "Announcements", href: "/teacher/announcements" },
     { icon: MessageCircle, label: "Messages", href: "/teacher/messages" },
   ];
 
@@ -185,7 +197,15 @@ export default function Sidebar() {
       <SidebarOverlay isOpen={isOpen} onClick={() => setIsOpen(false)} />
 
       <SidebarContainer isOpen={isOpen}>
-        <Logo>🏫 ApexGlobal Academy</Logo>
+        <Logo>
+          <LogoImage
+            src="/icon.png"
+            alt="ApexGlobal Academy Logo"
+            width={90}
+            height={90}
+          />
+          ApexGlobal Academy
+        </Logo>
 
         <NavSection>
           {navItems.map((item) => (

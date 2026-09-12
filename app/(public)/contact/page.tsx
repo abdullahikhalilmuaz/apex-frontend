@@ -63,7 +63,7 @@ export default function ContactPage() {
             }}
           >
             <h3 style={{ fontSize: 18, marginBottom: 8 }}>Phone</h3>
-            <p style={{ color: "rgba(255,255,255,0.7)" }}>+234 800 000 0000</p>
+            <p style={{ color: "rgba(255,255,255,0.7)" }}>+234 806 536 8767</p>
           </div>
           <div
             style={{
@@ -75,7 +75,7 @@ export default function ContactPage() {
           >
             <h3 style={{ fontSize: 18, marginBottom: 8 }}>Email</h3>
             <p style={{ color: "rgba(255,255,255,0.7)" }}>
-              info@apexglobalacademy.com
+              ibrahimkmg4@gmail.com
             </p>
           </div>
         </div>
