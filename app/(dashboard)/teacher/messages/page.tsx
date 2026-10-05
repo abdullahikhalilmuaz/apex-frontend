@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
-import api from "@/lib/api/client";
+import { messagingApi } from "@/lib/api/messagingApi";
 import { useAuth } from "@/hooks/useAuth";
 import styled from "@emotion/styled";
-import { Send } from "lucide-react";
+import { Plus, User, Users as UsersIcon, MessageCircle, X } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const Container = styled.div`
@@ -16,196 +16,258 @@ const Container = styled.div`
   width: 100%;
 `;
 
-const Title = styled.h1`
+const Row = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+`;
+
+const Avatar = styled.div<{ group?: boolean }>`
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: ${(p) => (p.group ? "#a78bfa" : "#667eea")};
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  font-size: 28px;
-  margin-bottom: 8px;
+  flex-shrink: 0;
 `;
 
-const Subtitle = styled.p`
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 32px;
-`;
-
-const MessageItem = styled(GlassCard)`
-  padding: 16px 20px;
-  margin-bottom: 12px;
-`;
-
-const MessageHeader = styled.div`
+const NameRow = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-`;
-
-const Sender = styled.span`
   color: white;
-  font-weight: 500;
+  font-weight: 700;
 `;
 
-const Time = styled.span`
-  color: rgba(255, 255, 255, 0.4);
+const Preview = styled.div`
+  color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
+  margin-top: 3px;
 `;
 
-const MessageContent = styled.p`
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-`;
-
-const Input = styled.input`
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  color: white;
-  flex: 1;
-
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-`;
-
-const SendButton = styled.button`
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  cursor: pointer;
+const Modal = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-end;
+  z-index: 1000;
+`;
 
-  &:hover {
-    transform: scale(1.05);
-  }
+const ModalContent = styled(GlassCard)`
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
 `;
 
 export default function TeacherMessages() {
+  const router = useRouter();
   const { user } = useAuth();
-  const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [recipients, setRecipients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newMessage, setNewMessage] = useState("");
-  const [sending, setSending] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
-    fetchMessages();
-  }, []);
+    (async () => {
+      try {
+        await messagingApi.syncMe(user?.name, user?.email).catch(() => {});
+        const [c, r] = await Promise.all([
+          messagingApi.getConversations(),
+          messagingApi.getRecipients(),
+        ]);
+        setConversations(c.data || []);
+        setRecipients(r.data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user]);
 
-  const fetchMessages = async () => {
+  const startDirect = async (toUserId: string) => {
     try {
-      const res = await api.get("/teacher/messages");
-      setMessages(res.data);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    } finally {
-      setLoading(false);
+      const res = await messagingApi.startDirect(toUserId);
+      setShowPicker(false);
+      router.push(`/teacher/messages/${res.data._id}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to start chat");
     }
   };
 
-  const handleSend = async () => {
-    if (!newMessage.trim()) return;
-
-    setSending(true);
-    try {
-      await api.post("/teacher/messages", {
-        content: newMessage,
-      });
-      toast.success("Message sent to Headmaster! 📨");
-      setNewMessage("");
-      fetchMessages();
-    } catch (error) {
-      toast.error("Failed to send message");
-      console.error("Error sending message:", error);
-    } finally {
-      setSending(false);
-    }
+  const timeAgo = (iso?: string) => {
+    if (!iso) return "";
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "now";
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
   };
 
   if (loading) {
     return (
       <Container>
-        <div style={{ color: "white", textAlign: "center", paddingTop: 100 }}>
-          Loading...
-        </div>
+        <div style={{ color: "white" }}>Loading...</div>
       </Container>
     );
   }
 
   return (
     <Container>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            color: "white",
-            border: "1px solid rgba(255,255,255,0.1)",
-          },
-          success: { iconTheme: { primary: "#34d399", secondary: "white" } },
-          error: { iconTheme: { primary: "#f87171", secondary: "white" } },
+      <Toaster position="top-right" />
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 32,
         }}
-      />
-      <Title>💬 Messages</Title>
-      <Subtitle>Communicate with the headmaster</Subtitle>
-
-      <GlassCard style={{ padding: 24, marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 12 }}>
-          <Input
-            placeholder="Type a message to the headmaster..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSend()}
-            disabled={sending}
-          />
-          <SendButton onClick={handleSend} disabled={sending}>
-            <Send size={20} /> {sending ? "Sending..." : "Send"}
-          </SendButton>
+      >
+        <div>
+          <h1 style={{ color: "white", fontSize: 28, marginBottom: 8 }}>
+            💬 Messages
+          </h1>
+          <p style={{ color: "rgba(255,255,255,0.7)" }}>
+            Chat with headmaster & staff
+          </p>
         </div>
-      </GlassCard>
+        <button
+          onClick={() => setShowPicker(true)}
+          style={{
+            padding: "10px 20px",
+            background: "rgba(255,255,255,0.15)",
+            border: "none",
+            borderRadius: 999,
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Plus size={18} /> New
+        </button>
+      </div>
 
-      {messages.length === 0 ? (
+      {conversations.length === 0 ? (
         <GlassCard style={{ padding: 40, textAlign: "center" }}>
-          <p style={{ color: "rgba(255,255,255,0.5)" }}>No messages yet</p>
+          <MessageCircle size={32} color="rgba(255,255,255,0.4)" />
+          <p style={{ color: "rgba(255,255,255,0.5)", marginTop: 12 }}>
+            No conversations yet
+          </p>
         </GlassCard>
       ) : (
-        messages.map((msg) => (
-          <motion.div
-            key={msg._id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+        conversations.map((c) => (
+          <GlassCard
+            key={c._id}
+            style={{ padding: 0, marginBottom: 12, cursor: "pointer" }}
+            onClick={() => router.push(`/teacher/messages/${c._id}`)}
           >
-            <MessageItem>
-              <MessageHeader>
-                <Sender>
-                  {msg.senderName || msg.senderId?.name || "Unknown"}
-                  {msg.senderModel && (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.4)",
-                        marginLeft: 8,
-                        textTransform: "capitalize",
-                      }}
-                    >
-                      ({msg.senderModel})
-                    </span>
-                  )}
-                </Sender>
-                <Time>{new Date(msg.createdAt).toLocaleString()}</Time>
-              </MessageHeader>
-              <MessageContent>{msg.content}</MessageContent>
-            </MessageItem>
-          </motion.div>
+            <Row>
+              <Avatar group={c.type === "group"}>
+                {c.type === "group" ? (
+                  <UsersIcon size={20} />
+                ) : (
+                  <User size={20} />
+                )}
+              </Avatar>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <NameRow>
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.4)",
+                    }}
+                  >
+                    {timeAgo(c.lastMessageAt)}
+                  </span>
+                </NameRow>
+                <Preview>
+                  {c.lastMessageSenderName
+                    ? `${c.lastMessageSenderName}: `
+                    : ""}
+                  {c.lastMessage || "No messages yet"}
+                </Preview>
+              </div>
+            </Row>
+          </GlassCard>
         ))
+      )}
+
+      {showPicker && (
+        <Modal onClick={() => setShowPicker(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+            >
+              <h2 style={{ color: "white" }}>New Message</h2>
+              <button
+                onClick={() => setShowPicker(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+            {recipients.length === 0 ? (
+              <p style={{ color: "rgba(255,255,255,0.5)" }}>
+                No recipients available
+              </p>
+            ) : (
+              recipients.map((r) => (
+                <div
+                  key={r.id}
+                  onClick={() => startDirect(r.id)}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    color: "white",
+                  }}
+                >
+                  <Avatar>
+                    {r.role === "parent" ? (
+                      <UsersIcon size={18} />
+                    ) : (
+                      <User size={18} />
+                    )}
+                  </Avatar>
+                  {r.label}
+                </div>
+              ))
+            )}
+          </ModalContent>
+        </Modal>
       )}
     </Container>
   );

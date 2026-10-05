@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { GlassCard } from "@/components/ui/GlassCard";
-import api from "@/lib/api/client";
-import { useAuth } from "@/hooks/useAuth";
+import appApi from "@/lib/api/appApi";
+import { useTeacherClass } from "@/hooks/useTeacherClass";
 import styled from "@emotion/styled";
 
 const Container = styled.div`
@@ -12,17 +12,6 @@ const Container = styled.div`
   padding: 32px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   width: 100%;
-`;
-
-const Title = styled.h1`
-  color: white;
-  font-size: 28px;
-  margin-bottom: 8px;
-`;
-
-const Subtitle = styled.p`
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 32px;
 `;
 
 const Table = styled.table`
@@ -53,46 +42,40 @@ const Input = styled.input`
   width: 100%;
   max-width: 300px;
   margin-bottom: 20px;
-
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
 `;
 
 export default function TeacherPupils() {
-  const { user } = useAuth();
-  const [pupils, setPupils] = useState([]);
+  const { className, loading: classLoading } = useTeacherClass();
+  const [students, setStudents] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPupils();
-  }, []);
+    if (!className) return;
+    (async () => {
+      try {
+        const res = await appApi.get(
+          `/students/class/${encodeURIComponent(className)}`,
+        );
+        setStudents(res.data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [className]);
 
-  const fetchPupils = async () => {
-    try {
-      // Get ALL pupils (no class filter)
-      const res = await api.get("/pupils");
-      setPupils(res.data);
-    } catch (error) {
-      console.error("Error fetching pupils:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filtered = students.filter((s) => {
+    const q = search.toLowerCase();
+    const full =
+      `${s.firstName} ${s.middleName || ""} ${s.lastName}`.toLowerCase();
+    return (
+      full.includes(q) || (s.admissionNumber || "").toLowerCase().includes(q)
+    );
+  });
 
-  const filteredPupils = pupils.filter(
-    (p) =>
-      p.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.admissionNumber?.includes(search),
-  );
-
-  if (loading) {
+  if (loading || classLoading) {
     return (
       <Container>
         <div style={{ color: "white" }}>Loading...</div>
@@ -102,12 +85,16 @@ export default function TeacherPupils() {
 
   return (
     <Container>
-      <Title>👨‍🎓 All Pupils</Title>
-      <Subtitle>Total: {pupils.length} pupils</Subtitle>
+      <h1 style={{ color: "white", fontSize: 28, marginBottom: 8 }}>
+        👨‍🎓 My Pupils
+      </h1>
+      <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: 32 }}>
+        {className} • {students.length} pupils
+      </p>
 
       <GlassCard style={{ padding: 24 }}>
         <Input
-          placeholder="Search by name or admission number..."
+          placeholder="Search by name or admission no..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -118,11 +105,11 @@ export default function TeacherPupils() {
               <Th>Name</Th>
               <Th>Admission No</Th>
               <Th>Class</Th>
-              <Th>Date of Birth</Th>
+              <Th>Gender</Th>
             </tr>
           </thead>
           <tbody>
-            {filteredPupils.length === 0 ? (
+            {filtered.length === 0 ? (
               <tr>
                 <Td
                   colSpan={4}
@@ -135,20 +122,18 @@ export default function TeacherPupils() {
                 </Td>
               </tr>
             ) : (
-              filteredPupils.map((pupil) => (
+              filtered.map((s) => (
                 <motion.tr
-                  key={pupil._id}
+                  key={s._id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <Td>{pupil.name}</Td>
-                  <Td>{pupil.admissionNumber}</Td>
-                  <Td>{pupil.class}</Td>
                   <Td>
-                    {pupil.dateOfBirth
-                      ? new Date(pupil.dateOfBirth).toLocaleDateString()
-                      : "-"}
+                    {s.firstName} {s.middleName} {s.lastName}
                   </Td>
+                  <Td>{s.admissionNumber || "—"}</Td>
+                  <Td>{s.class}</Td>
+                  <Td>{s.gender || "—"}</Td>
                 </motion.tr>
               ))
             )}

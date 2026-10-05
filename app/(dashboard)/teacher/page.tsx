@@ -5,13 +5,14 @@ import { motion } from "framer-motion";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api/client";
+import appApi from "@/lib/api/appApi";
 import styled from "@emotion/styled";
 import {
   Users,
   CheckCircle,
   Clock,
+  ClipboardList,
   BookOpen,
-  Calendar,
   MessageCircle,
 } from "lucide-react";
 
@@ -24,7 +25,7 @@ const Container = styled.div`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
   margin-bottom: 32px;
 `;
@@ -64,30 +65,46 @@ export default function TeacherDashboard() {
     pupils: 0,
     present: 0,
     absent: 0,
-    lessons: 0,
-    schemes: 0,
+    assignments: 0,
+    exams: 0,
     messages: 0,
   });
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    (async () => {
+      try {
+        const classRes = await api
+          .get("/dashboard/teacher-stats")
+          .catch(() => ({ data: { classAssigned: "" } }));
+        const className = classRes.data.classAssigned;
+        if (!className) return;
 
-  const fetchStats = async () => {
-    try {
-      const res = await api.get("/dashboard/teacher-stats");
-      setStats(res.data);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
+        const statsRes = await appApi
+          .get(
+            `/dashboard/teacher-stats?class=${encodeURIComponent(className)}`,
+          )
+          .catch(() => ({ data: {} }));
+
+        setStats({
+          pupils: statsRes.data.pupils || 0,
+          present: statsRes.data.present || 0,
+          absent: statsRes.data.absent || 0,
+          assignments: 0,
+          exams: 0,
+          messages: 0,
+        });
+      } catch (error) {
+        console.error("Dashboard load error:", error);
+      }
+    })();
+  }, []);
 
   const statItems = [
     { icon: Users, label: "My Pupils", value: stats.pupils },
     { icon: CheckCircle, label: "Present Today", value: stats.present },
     { icon: Clock, label: "Absent Today", value: stats.absent },
-    { icon: BookOpen, label: "Lesson Notes", value: stats.lessons },
-    { icon: Calendar, label: "Scheme Progress", value: stats.schemes },
+    { icon: ClipboardList, label: "Assignments", value: stats.assignments },
+    { icon: BookOpen, label: "Exams", value: stats.exams },
     { icon: MessageCircle, label: "Messages", value: stats.messages },
   ];
 
@@ -129,7 +146,7 @@ export default function TeacherDashboard() {
         <GlassCard style={{ padding: 40, textAlign: "center" }}>
           <h3 style={{ color: "white", marginBottom: 8 }}>Quick Actions</h3>
           <p style={{ color: "rgba(255,255,255,0.6)" }}>
-            Mark attendance • Enter results • Create lesson notes • View scheme
+            Mark attendance • Enter results • Post assignments • Create exams
           </p>
         </GlassCard>
       </motion.div>

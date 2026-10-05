@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { GlassCard } from "@/components/ui/GlassCard";
-import api from "@/lib/api/client";
-import { useAuth } from "@/hooks/useAuth";
+import appApi from "@/lib/api/appApi";
+import { useTeacherClass } from "@/hooks/useTeacherClass";
 import styled from "@emotion/styled";
-import { Check, X, Save, History } from "lucide-react";
+import { Save } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const Container = styled.div`
@@ -14,17 +14,6 @@ const Container = styled.div`
   padding: 32px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   width: 100%;
-`;
-
-const Title = styled.h1`
-  color: white;
-  font-size: 28px;
-  margin-bottom: 8px;
-`;
-
-const Subtitle = styled.p`
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 32px;
 `;
 
 const Table = styled.table`
@@ -46,26 +35,9 @@ const Td = styled.td`
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 `;
 
-const StatusButton = styled.button<{ active: boolean }>`
-  padding: 6px 16px;
-  border-radius: 20px;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  background: ${(props) =>
-    props.active ? "rgba(52, 211, 153, 0.3)" : "rgba(239, 68, 68, 0.3)"};
-  color: ${(props) => (props.active ? "#34d399" : "#f87171")};
-
-  &:hover {
-    transform: scale(1.05);
-  }
-`;
-
-const SaveButton = styled.button`
+const SaveBtn = styled.button`
   padding: 12px 32px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
   border-radius: 14px;
   color: white;
@@ -75,240 +47,165 @@ const SaveButton = styled.button`
   align-items: center;
   gap: 8px;
   margin-top: 24px;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: scale(1.02);
-    box-shadow: 0 20px 40px -12px rgba(102, 126, 234, 0.4);
-  }
 `;
 
-const SectionTitle = styled.h2`
-  color: white;
-  font-size: 20px;
-  margin: 32px 0 16px;
-`;
-
-const StatusBadge = styled.span<{ status: string }>`
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  background: ${(props) =>
-    props.status === "present"
-      ? "rgba(52, 211, 153, 0.2)"
-      : "rgba(239, 68, 68, 0.2)"};
-  color: ${(props) => (props.status === "present" ? "#34d399" : "#f87171")};
-  text-transform: capitalize;
-`;
+type Status = "present" | "absent" | "late" | "excused";
+const STATUSES: Status[] = ["present", "absent", "late", "excused"];
+const STATUS_COLORS: Record<Status, string> = {
+  present: "#34d399",
+  absent: "#f87171",
+  late: "#fbbf24",
+  excused: "#60a5fa",
+};
 
 export default function TeacherAttendance() {
-  const { user } = useAuth();
-  const [pupils, setPupils] = useState([]);
-  const [attendance, setAttendance] = useState({});
-  const [history, setHistory] = useState([]);
+  const { className, loading: classLoading } = useTeacherClass();
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [students, setStudents] = useState<any[]>([]);
+  const [marks, setMarks] = useState<Record<string, Status>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [teacherClass, setTeacherClass] = useState("");
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!className) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const [sRes, aRes] = await Promise.all([
+          appApi.get(`/students/class/${encodeURIComponent(className)}`),
+          appApi.get(
+            `/attendance/class/${encodeURIComponent(className)}?date=${date}`,
+          ),
+        ]);
+        setStudents(sRes.data);
+        const existing: Record<string, Status> = {};
+        aRes.data.forEach((r: any) => {
+          existing[r.studentId._id || r.studentId] = r.status;
+        });
+        setMarks(existing);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [className, date]);
 
-  const fetchData = async () => {
-    try {
-      // Get teacher's class
-      const teacherRes = await api.get("/teacher/profile");
-      const className = teacherRes.data.classAssigned;
-      setTeacherClass(className);
-
-      // Fetch pupils for that class
-      const pupilsRes = await api.get(`/pupils/class/${className}`);
-      setPupils(pupilsRes.data);
-
-      // Initialize attendance
-      const initial = {};
-      pupilsRes.data.forEach((p) => {
-        initial[p._id] = "present";
-      });
-      setAttendance(initial);
-
-      // Fetch attendance history
-      const historyRes = await api.get("/attendance/teacher/history?days=30");
-      setHistory(historyRes.data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Failed to load attendance data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleStatus = (pupilId) => {
-    setAttendance((prev) => ({
-      ...prev,
-      [pupilId]: prev[pupilId] === "present" ? "absent" : "present",
-    }));
-  };
-
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
-      const data = {
-        class: teacherClass,
-        attendance: pupils.map((p) => ({
-          pupilId: p._id,
-          status: attendance[p._id] || "present",
-        })),
-        term: "First",
-        session: "2024/2025",
-      };
-      await api.post("/attendance/mark", data);
+      const records = students.map((s) => ({
+        studentId: s._id,
+        status: marks[s._id] || "present",
+      }));
+      await appApi.post("/attendance", { class: className, date, records });
       toast.success("Attendance saved! ✅");
-      fetchData();
-    } catch (error) {
-      console.error("Error saving attendance:", error);
-      toast.error("Failed to save attendance");
+    } catch (e) {
+      toast.error("Failed to save");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading)
+  if (loading || classLoading) {
     return (
       <Container>
         <div style={{ color: "white" }}>Loading...</div>
       </Container>
     );
+  }
 
   return (
     <Container>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            color: "white",
-            border: "1px solid rgba(255,255,255,0.1)",
-          },
-          success: { iconTheme: { primary: "#34d399", secondary: "white" } },
-          error: { iconTheme: { primary: "#f87171", secondary: "white" } },
-        }}
-      />
-      <Title>📋 Mark Attendance</Title>
-      <Subtitle>Mark pupils as present or absent</Subtitle>
+      <Toaster position="top-right" />
+      <h1 style={{ color: "white", fontSize: 28, marginBottom: 8 }}>
+        📋 Attendance
+      </h1>
+      <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: 32 }}>
+        {className}
+      </p>
 
-      <GlassCard style={{ padding: 24, marginBottom: 24 }}>
-        <div
+      <GlassCard style={{ padding: 24, marginBottom: 16 }}>
+        <label
           style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            marginBottom: 20,
+            color: "rgba(255,255,255,0.7)",
+            display: "block",
+            marginBottom: 8,
           }}
         >
-          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-            Class: {teacherClass} • {pupils.length} pupils
-          </span>
-        </div>
+          Date
+        </label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{
+            padding: "10px 16px",
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 12,
+            color: "white",
+          }}
+        />
+      </GlassCard>
 
+      <GlassCard style={{ padding: 24 }}>
         <Table>
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>Admission No</Th>
               <Th>Status</Th>
             </tr>
           </thead>
           <tbody>
-            {pupils.length === 0 ? (
-              <tr>
-                <Td
-                  colSpan={3}
-                  style={{
-                    textAlign: "center",
-                    color: "rgba(255,255,255,0.5)",
-                  }}
-                >
-                  No pupils found in {teacherClass}
-                </Td>
-              </tr>
-            ) : (
-              pupils.map((pupil) => (
+            {students.map((s) => {
+              const current: Status = marks[s._id] || "present";
+              return (
                 <motion.tr
-                  key={pupil._id}
+                  key={s._id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <Td>{pupil.name}</Td>
-                  <Td>{pupil.admissionNumber}</Td>
                   <Td>
-                    <StatusButton
-                      active={attendance[pupil._id] === "present"}
-                      onClick={() => toggleStatus(pupil._id)}
-                    >
-                      {attendance[pupil._id] === "present" ? (
-                        <>
-                          <Check size={14} /> Present
-                        </>
-                      ) : (
-                        <>
-                          <X size={14} /> Absent
-                        </>
-                      )}
-                    </StatusButton>
+                    {s.firstName} {s.middleName} {s.lastName}
+                  </Td>
+                  <Td>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {STATUSES.map((st) => (
+                        <button
+                          key={st}
+                          onClick={() => setMarks({ ...marks, [s._id]: st })}
+                          style={{
+                            padding: "6px 14px",
+                            borderRadius: 20,
+                            border: "none",
+                            cursor: "pointer",
+                            background:
+                              current === st
+                                ? STATUS_COLORS[st]
+                                : "rgba(255,255,255,0.08)",
+                            color:
+                              current === st
+                                ? "white"
+                                : "rgba(255,255,255,0.6)",
+                            fontWeight: current === st ? 600 : 400,
+                          }}
+                        >
+                          {st.charAt(0).toUpperCase() + st.slice(1)}
+                        </button>
+                      ))}
+                    </div>
                   </Td>
                 </motion.tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </Table>
 
-        {pupils.length > 0 && (
-          <SaveButton onClick={handleSubmit} disabled={saving}>
-            <Save size={20} />
-            {saving ? "Saving..." : "Save Attendance"}
-          </SaveButton>
-        )}
-      </GlassCard>
-
-      <SectionTitle>
-        <History size={20} style={{ display: "inline", marginRight: 8 }} />
-        Attendance History (Last 30 Days)
-      </SectionTitle>
-
-      <GlassCard style={{ padding: 20 }}>
-        {history.length === 0 ? (
-          <p style={{ color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
-            No attendance history available
-          </p>
-        ) : (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Date</Th>
-                <Th>Pupil</Th>
-                <Th>Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.slice(0, 50).map((record) => (
-                <motion.tr
-                  key={record._id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <Td>{new Date(record.date).toLocaleDateString()}</Td>
-                  <Td>{record.pupilId?.name || "Unknown"}</Td>
-                  <Td>
-                    <StatusBadge status={record.status}>
-                      {record.status}
-                    </StatusBadge>
-                  </Td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </Table>
+        {students.length > 0 && (
+          <SaveBtn onClick={handleSave} disabled={saving}>
+            <Save size={20} /> {saving ? "Saving..." : "Save Attendance"}
+          </SaveBtn>
         )}
       </GlassCard>
     </Container>

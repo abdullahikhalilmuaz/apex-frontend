@@ -1,13 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { GlassCard } from "@/components/ui/GlassCard";
-import api from "@/lib/api/client";
-import { useAuth } from "@/hooks/useAuth";
+import appApi from "@/lib/api/appApi";
+import { useTeacherClass } from "@/hooks/useTeacherClass";
 import styled from "@emotion/styled";
-import { Save, Send, Search } from "lucide-react";
+import { Save } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+
+const SUBJECTS = [
+  "English Studies",
+  "Mathematics",
+  "Basic Science",
+  "Basic Technology",
+  "Computer Studies",
+  "Physical and Health Education",
+  "Social Studies",
+  "Civic Education",
+  "Security Education",
+  "Islamic Religion Studies",
+  "Christian Religion Studies",
+  "Agricultural Science",
+  "Home Economics",
+  "Yoruba",
+  "Hausa",
+  "Igbo",
+  "French",
+  "Arabic",
+  "Cultural and Creative Arts",
+  "History",
+];
+const TERMS = ["First", "Second", "Third"];
+const SESSIONS = ["2024/2025", "2025/2026", "2026/2027", "2027/2028"];
 
 const Container = styled.div`
   min-height: 100vh;
@@ -16,15 +40,17 @@ const Container = styled.div`
   width: 100%;
 `;
 
-const Title = styled.h1`
+const Select = styled.select`
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
   color: white;
-  font-size: 28px;
-  margin-bottom: 8px;
-`;
-
-const Subtitle = styled.p`
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 32px;
+  margin-right: 12px;
+  margin-bottom: 16px;
+  option {
+    color: black;
+  }
 `;
 
 const Table = styled.table`
@@ -35,59 +61,31 @@ const Table = styled.table`
 
 const Th = styled.th`
   text-align: left;
-  padding: 12px 16px;
+  padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
+  font-size: 13px;
 `;
 
 const Td = styled.td`
-  padding: 12px 16px;
+  padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 14px;
 `;
 
-const Input = styled.input`
-  width: 80px;
-  padding: 8px 12px;
+const NumInput = styled.input`
+  width: 55px;
+  padding: 6px 8px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  border-radius: 6px;
   color: white;
-  font-size: 14px;
-
-  &:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
+  text-align: center;
 `;
 
-const Select = styled.select`
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  color: white;
-  font-size: 14px;
-  margin-bottom: 20px;
-  width: 200px;
-  margin-right: 12px;
-
-  option {
-    color: black;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-`;
-
-const Button = styled.button<{ variant?: "primary" | "success" }>`
+const SaveBtn = styled.button`
   padding: 12px 32px;
-  background: ${(props) =>
-    props.variant === "success"
-      ? "linear-gradient(135deg, #34d399, #059669)"
-      : "linear-gradient(135deg, #667eea, #764ba2)"};
+  background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
   border-radius: 14px;
   color: white;
@@ -97,334 +95,251 @@ const Button = styled.button<{ variant?: "primary" | "success" }>`
   align-items: center;
   gap: 8px;
   margin-top: 24px;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: scale(1.02);
-    box-shadow: 0 20px 40px -12px rgba(102, 126, 234, 0.4);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-  }
 `;
 
-const GradeBadge = styled.span<{ grade: string }>`
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  background: ${(props) => {
-    switch (props.grade) {
-      case "A":
-        return "rgba(52, 211, 153, 0.3)";
-      case "B":
-        return "rgba(96, 165, 250, 0.3)";
-      case "C":
-        return "rgba(251, 191, 36, 0.3)";
-      case "D":
-        return "rgba(251, 146, 60, 0.3)";
-      default:
-        return "rgba(239, 68, 68, 0.3)";
-    }
-  }};
-  color: ${(props) => {
-    switch (props.grade) {
-      case "A":
-        return "#34d399";
-      case "B":
-        return "#60a5fa";
-      case "C":
-        return "#fbbf24";
-      case "D":
-        return "#fb923c";
-      default:
-        return "#f87171";
-    }
-  }};
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-`;
-
-const PublishedBadge = styled.span`
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  background: rgba(52, 211, 153, 0.2);
-  color: #34d399;
-`;
+type Student = {
+  _id: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+};
+type SubScore = { ca1: number; ca2: number; ca3: number; exam: number };
 
 export default function TeacherResults() {
-  const { user } = useAuth();
-  const [pupils, setPupils] = useState([]);
-  const [results, setResults] = useState({});
-  const [savedResults, setSavedResults] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState("Mathematics");
-  const [selectedTerm, setSelectedTerm] = useState("First");
+  const { className, loading: classLoading } = useTeacherClass();
+  const [term, setTerm] = useState("First");
+  const [session, setSession] = useState("2026/2027");
+  const [activeSubject, setActiveSubject] = useState("English Studies");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [scores, setScores] = useState<
+    Record<string, Record<string, SubScore>>
+  >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
-  const [teacherClass, setTeacherClass] = useState("");
-
-  const subjects = [
-    "English",
-    "Mathematics",
-    "Basic Science",
-    "Social Studies",
-    "Civic Education",
-    "Computer Studies",
-  ];
-  const terms = ["First", "Second", "Third"];
+  const [hasExisting, setHasExisting] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, [selectedSubject, selectedTerm]);
+    if (!className) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const sRes = await appApi.get(
+          `/students/class/${encodeURIComponent(className)}`,
+        );
+        setStudents(sRes.data);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Get teacher profile
-      const teacherRes = await api.get("/teacher/profile");
-      setTeacherClass(teacherRes.data.classAssigned);
+        const rRes = await appApi
+          .get(
+            `/results/class/${encodeURIComponent(
+              className,
+            )}?term=${term}&session=${encodeURIComponent(session)}`,
+          )
+          .catch(() => ({ data: [] }));
+        const existing = rRes.data || [];
+        setHasExisting(existing.length > 0);
 
-      // Get pupils for the class
-      const pupilsRes = await api.get(`/pupils/class/${teacherRes.data.classAssigned}`);
-      setPupils(pupilsRes.data);
-
-      // Get existing results for this class
-      const resultsRes = await api.get(
-        `/results/teacher?subject=${selectedSubject}&term=${selectedTerm}`
-      );
-      setSavedResults(resultsRes.data);
-
-      // Check if results are published
-      if (resultsRes.data.length > 0) {
-        setIsPublished(resultsRes.data[0].isPublished || false);
-      } else {
-        setIsPublished(false);
+        const merged: Record<string, Record<string, SubScore>> = {};
+        existing.forEach((r: any) => {
+          const sid = r.studentId?._id || r.studentId;
+          if (!sid) return;
+          merged[sid] = {};
+          r.subjects.forEach((s: any) => {
+            merged[sid][s.subject] = {
+              ca1: s.ca1 ?? s.ca ?? 0,
+              ca2: s.ca2 || 0,
+              ca3: s.ca3 || 0,
+              exam: s.exam || 0,
+            };
+          });
+        });
+        setScores(merged);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
+    })();
+  }, [className, term, session]);
 
-      // Initialize form data
-      const initial = {};
-      pupilsRes.data.forEach((p) => {
-        const existing = resultsRes.data.find((r) => r.pupilId._id === p._id);
-        initial[p._id] = {
-          ca: existing?.caScore || 0,
-          exam: existing?.examScore || 0,
-        };
-      });
-      setResults(initial);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Failed to load data");
-    } finally {
-      setLoading(false);
-    }
+  const update = (sid: string, field: keyof SubScore, value: string) => {
+    const n = parseInt(value || "0");
+    setScores((prev) => {
+      const sScores = prev[sid] || {};
+      const sc = sScores[activeSubject] || {
+        ca1: 0,
+        ca2: 0,
+        ca3: 0,
+        exam: 0,
+      };
+      return {
+        ...prev,
+        [sid]: {
+          ...sScores,
+          [activeSubject]: { ...sc, [field]: isNaN(n) ? 0 : n },
+        },
+      };
+    });
   };
 
-  const updateResult = (pupilId, field, value) => {
-    setResults((prev) => ({
-      ...prev,
-      [pupilId]: {
-        ...prev[pupilId],
-        [field]: parseInt(value) || 0,
-      },
-    }));
-  };
-
-  const getGrade = (ca, exam) => {
-    const total = (ca || 0) + (exam || 0);
-    if (total >= 70) return "A";
-    if (total >= 60) return "B";
-    if (total >= 50) return "C";
-    if (total >= 40) return "D";
-    if (total >= 30) return "E";
-    return "F";
-  };
-
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
-      const promises = pupils.map((pupil) => {
-        const data = {
-          pupilId: pupil._id,
-          subject: selectedSubject,
-          caScore: results[pupil._id]?.ca || 0,
-          examScore: results[pupil._id]?.exam || 0,
-          term: selectedTerm,
-          session: "2024/2025",
-        };
-        return api.post("/results", data);
+      const results = students.map((s) => {
+        const sScores = scores[s._id] || {};
+        const subjects = SUBJECTS.filter((sub) => {
+          const sc = sScores[sub];
+          if (!sc) return false;
+          return sc.ca1 > 0 || sc.ca2 > 0 || sc.ca3 > 0 || sc.exam > 0;
+        }).map((sub) => ({
+          subject: sub,
+          ca1: sScores[sub]?.ca1 || 0,
+          ca2: sScores[sub]?.ca2 || 0,
+          ca3: sScores[sub]?.ca3 || 0,
+          exam: sScores[sub]?.exam || 0,
+        }));
+        return { studentId: s._id, subjects };
       });
-      await Promise.all(promises);
-      toast.success("Results saved successfully! ✅");
-      fetchData();
-    } catch (error) {
-      console.error("Error saving results:", error);
-      toast.error("Failed to save results");
+
+      await appApi.post("/results", {
+        class: className,
+        term,
+        session,
+        results,
+      });
+
+      toast.success(hasExisting ? "Results updated" : "Results published");
+      setHasExisting(true);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || "Failed to save");
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePublish = async () => {
-    if (!confirm("Publish results to parents? This cannot be undone.")) return;
-
-    setPublishing(true);
-    try {
-      await api.post("/results/publish", {
-        subject: selectedSubject,
-        term: selectedTerm,
-        session: "2024/2025",
-      });
-      setIsPublished(true);
-      toast.success("Results published to parents! ✅");
-      fetchData();
-    } catch (error) {
-      console.error("Error publishing results:", error);
-      toast.error("Failed to publish results");
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  if (loading) {
+  if (loading || classLoading) {
     return (
       <Container>
-        <div style={{ color: "white", textAlign: "center", paddingTop: 100 }}>
-          Loading...
-        </div>
+        <div style={{ color: "white" }}>Loading...</div>
       </Container>
     );
   }
 
   return (
     <Container>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            color: "white",
-            border: "1px solid rgba(255,255,255,0.1)",
-          },
-          success: { iconTheme: { primary: "#34d399", secondary: "white" } },
-          error: { iconTheme: { primary: "#f87171", secondary: "white" } },
-        }}
-      />
-      <Title>📊 Enter Results</Title>
-      <Subtitle>
-        Enter CA and Exam scores for {teacherClass}
-      </Subtitle>
+      <Toaster position="top-right" />
+      <h1 style={{ color: "white", fontSize: 28, marginBottom: 8 }}>
+        {hasExisting ? "✏️ Edit Results" : "📊 Enter Results"}
+      </h1>
+      <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: 32 }}>
+        {className} — 3 CAs (each /10) + Exam (/70)
+      </p>
 
       <GlassCard style={{ padding: 24 }}>
-        <div style={{ marginBottom: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ marginBottom: 20 }}>
           <Select
-            value={selectedSubject}
-            onChange={(e) => setSelectedSubject(e.target.value)}
+            value={activeSubject}
+            onChange={(e) => setActiveSubject(e.target.value)}
           >
-            {subjects.map((s) => (
+            {SUBJECTS.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
           </Select>
-          <Select
-            value={selectedTerm}
-            onChange={(e) => setSelectedTerm(e.target.value)}
-          >
-            {terms.map((t) => (
+          <Select value={term} onChange={(e) => setTerm(e.target.value)}>
+            {TERMS.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {t} Term
               </option>
             ))}
           </Select>
-          {isPublished && <PublishedBadge>Published</PublishedBadge>}
+          <Select value={session} onChange={(e) => setSession(e.target.value)}>
+            {SESSIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </Select>
         </div>
 
         <Table>
           <thead>
             <tr>
-              <Th>Name</Th>
-              <Th>CA (40)</Th>
-              <Th>Exam (60)</Th>
+              <Th>Student</Th>
+              <Th>CA1</Th>
+              <Th>CA2</Th>
+              <Th>CA3</Th>
+              <Th>Exam</Th>
               <Th>Total</Th>
-              <Th>Grade</Th>
             </tr>
           </thead>
           <tbody>
-            {pupils.length === 0 ? (
-              <tr>
-                <Td colSpan={5} style={{ textAlign: "center", color: "rgba(255,255,255,0.5)" }}>
-                  No pupils found
-                </Td>
-              </tr>
-            ) : (
-              pupils.map((pupil) => {
-                const ca = results[pupil._id]?.ca || 0;
-                const exam = results[pupil._id]?.exam || 0;
-                const total = ca + exam;
-                const grade = getGrade(ca, exam);
-                return (
-                  <motion.tr
-                    key={pupil._id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <Td>{pupil.name}</Td>
-                    <Td>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="40"
-                        value={ca}
-                        onChange={(e) => updateResult(pupil._id, "ca", e.target.value)}
-                      />
-                    </Td>
-                    <Td>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="60"
-                        value={exam}
-                        onChange={(e) => updateResult(pupil._id, "exam", e.target.value)}
-                      />
-                    </Td>
-                    <Td>{total}</Td>
-                    <Td>
-                      <GradeBadge grade={grade}>{grade}</GradeBadge>
-                    </Td>
-                  </motion.tr>
-                );
-              })
-            )}
+            {students.map((s) => {
+              const sc = scores[s._id]?.[activeSubject] || {
+                ca1: 0,
+                ca2: 0,
+                ca3: 0,
+                exam: 0,
+              };
+              const total = sc.ca1 + sc.ca2 + sc.ca3 + sc.exam;
+              return (
+                <tr key={s._id}>
+                  <Td>
+                    {s.firstName} {s.middleName} {s.lastName}
+                  </Td>
+                  <Td>
+                    <NumInput
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={sc.ca1 || ""}
+                      onChange={(e) => update(s._id, "ca1", e.target.value)}
+                    />
+                  </Td>
+                  <Td>
+                    <NumInput
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={sc.ca2 || ""}
+                      onChange={(e) => update(s._id, "ca2", e.target.value)}
+                    />
+                  </Td>
+                  <Td>
+                    <NumInput
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={sc.ca3 || ""}
+                      onChange={(e) => update(s._id, "ca3", e.target.value)}
+                    />
+                  </Td>
+                  <Td>
+                    <NumInput
+                      type="number"
+                      min="0"
+                      max="70"
+                      value={sc.exam || ""}
+                      onChange={(e) => update(s._id, "exam", e.target.value)}
+                    />
+                  </Td>
+                  <Td>
+                    <strong>{total}</strong>
+                  </Td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
 
-        <ButtonGroup>
-          <Button onClick={handleSubmit} disabled={saving}>
-            <Save size={20} />
-            {saving ? "Saving..." : "Save Results"}
-          </Button>
-
-          <Button
-            variant="success"
-            onClick={handlePublish}
-            disabled={publishing || isPublished}
-          >
-            <Send size={20} />
-            {publishing ? "Publishing..." : isPublished ? "Published" : "Publish to Parents"}
-          </Button>
-        </ButtonGroup>
+        <SaveBtn onClick={handleSave} disabled={saving}>
+          <Save size={20} />{" "}
+          {saving
+            ? "Saving..."
+            : hasExisting
+              ? "Update Results"
+              : "Publish Results"}
+        </SaveBtn>
       </GlassCard>
     </Container>
   );
