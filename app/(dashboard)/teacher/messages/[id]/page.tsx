@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { messagingApi } from "@/lib/messagingApi";
-import { connectSocket } from "@/lib/socket";
+import { messagingApi } from "@/lib/api/messagingApi";
+import { connectSocket } from "@/lib/api/socket";
 import { useAuth } from "@/hooks/useAuth";
 import styled from "@emotion/styled";
 import { ArrowLeft, Send } from "lucide-react";

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { GlassCard } from "@/components/ui/GlassCard";
 import styled from "@emotion/styled";
+import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 
 const Container = styled.div`
@@ -57,6 +58,23 @@ const Button = styled.button<{ loading: boolean }>`
     transform: ${(props) => (props.loading ? "none" : "scale(1.02)")};
     box-shadow: ${(props) =>
       props.loading ? "none" : "0 20px 40px -12px rgba(102, 126, 234, 0.4)"};
+  }
+`;
+
+const LinkRow = styled.p`
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+
+  a {
+    color: #a78bfa;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
   }
 `;
 
@@ -151,6 +169,11 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+
+          <LinkRow>
+            Don&apos;t have an account?{" "}
+            <Link href="/register">Create Account</Link>
+          </LinkRow>
         </GlassCard>
       </motion.div>
     </Container>

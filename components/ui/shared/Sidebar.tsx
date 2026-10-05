@@ -15,6 +15,8 @@ import {
   X,
   BookOpen,
   MessageCircle,
+  FileText,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -35,7 +37,7 @@ const SidebarOverlay = styled.div<{ isOpen: boolean }>`
 
 const SidebarContainer = styled.div<{ isOpen: boolean }>`
   width: 280px;
-  min-height: 100vh;
+  height: 100vh;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
@@ -47,6 +49,23 @@ const SidebarContainer = styled.div<{ isOpen: boolean }>`
   flex-direction: column;
   z-index: 50;
   transition: transform 0.3s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Custom scrollbar (subtle, matches theme) */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
 
   @media (max-width: 767px) {
     transform: ${(props) =>
@@ -98,7 +117,8 @@ const LogoImage = styled(Image)`
 `;
 
 const NavSection = styled.div`
-  flex: 1;
+  flex: 1 0 auto;
+  padding-bottom: 16px;
 `;
 
 const NavItem = styled(Link, {
@@ -133,7 +153,8 @@ const LogoutButton = styled.button`
   border-radius: 12px;
   cursor: pointer;
   width: 100%;
-  margin-top: auto;
+  margin-top: 16px;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 
   &:hover {
@@ -158,6 +179,7 @@ export default function Sidebar() {
     { icon: Bell, label: "Announcements", href: "/headmaster/announcements" },
     { icon: BookOpen, label: "Scheme of Work", href: "/headmaster/scheme" },
     { icon: BookOpen, label: "Results", href: "/headmaster/results" },
+    { icon: FileText, label: "Exam Questions", href: "/headmaster/exams" },
     { icon: MessageCircle, label: "Messages", href: "/headmaster/messages" },
   ];
 
@@ -166,6 +188,8 @@ export default function Sidebar() {
     { icon: Users, label: "My Pupils", href: "/teacher/pupils" },
     { icon: Calendar, label: "Attendance", href: "/teacher/attendance" },
     { icon: BookOpen, label: "Results", href: "/teacher/results" },
+    { icon: FileText, label: "Exam Questions", href: "/teacher/exams" },
+    { icon: ClipboardList, label: "Assignments", href: "/teacher/assignments" },
     { icon: Calendar, label: "Scheme of Work", href: "/teacher/scheme" },
     { icon: BookOpen, label: "Lesson Notes", href: "/teacher/lessons" },
     { icon: Bell, label: "Announcements", href: "/teacher/announcements" },
@@ -187,6 +211,13 @@ export default function Sidebar() {
   };
 
   const navItems = getNavItems();
+
+  const isActive = (href: string) => {
+    if (href === "/teacher" || href === "/headmaster" || href === "/parent") {
+      return pathname === href;
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
     <>
@@ -212,7 +243,7 @@ export default function Sidebar() {
             <NavItem
               key={item.href}
               href={item.href}
-              active={pathname === item.href}
+              active={isActive(item.href)}
             >
               <item.icon size={20} />
               {item.label}

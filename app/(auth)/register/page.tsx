@@ -311,6 +311,9 @@ export default function RegisterPage() {
                   disabled={loading}
                 >
                   <option value="">Select Class</option>
+                  <option value="Pre-Nursery">Pre-Nursery</option>
+                  <option value="Nursery 1">Nursery 1</option>
+                  <option value="Nursery 2">Nursery 2</option>
                   <option value="Primary 1">Primary 1</option>
                   <option value="Primary 2">Primary 2</option>
                   <option value="Primary 3">Primary 3</option>
